@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Sign in — Banking SaaS Admin{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 380px; margin: 60px auto;">
+  <h1>Sign in</h1>
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors|join:" " }}</div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <label for="id_username">Email</label>
+    <input type="email" name="username" id="id_username" required autofocus>
+    <label for="id_password">Password</label>
+    <input type="password" name="password" id="id_password" required>
+    <button class="btn" type="submit" style="margin-top: 20px; width: 100%;">Sign in</button>
+  </form>
+</div>
+{% endblock %}

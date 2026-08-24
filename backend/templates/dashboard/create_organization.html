@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Create Subdomain — Banking SaaS Admin{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Create a new organization &amp; subdomain</h1>
+  <p class="muted">This creates the organization's Postgres database, registers it with Fineract, provisions their subdomain, and creates their first admin login — all in one step.</p>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+      {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% endfor %}
+    <button class="btn" type="submit" style="margin-top: 20px;">Create Organization</button>
+  </form>
+</div>
+{% endblock %}

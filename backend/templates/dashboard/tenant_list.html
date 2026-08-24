@@ -1,0 +1,47 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Organizations — Banking SaaS Admin{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Organizations</h1>
+  {% if tenants %}
+  <table>
+    <thead>
+      <tr><th>Organization</th><th>Subdomain</th><th>Provision</th><th>Status</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for tenant in tenants %}
+      <tr>
+        <td>{{ tenant.organization.trading_name|default:tenant.organization.legal_name }}</td>
+        <td>
+          {% with domain=tenant.domains.first %}
+            {% if domain %}
+              <a href="http://{{ domain.hostname }}{% if current_port %}:{{ current_port }}{% endif %}/" target="_blank">{{ domain.hostname }}</a>
+            {% else %}
+              <span class="muted">not yet assigned</span>
+            {% endif %}
+          {% endwith %}
+        </td>
+        <td>
+          {% if tenant.latest_job %}
+            {% if tenant.latest_job.is_success %}
+              <span class="muted">{{ tenant.latest_job.current_step }}</span>
+            {% else %}
+              <span class="muted">failed</span>
+            {% endif %}
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+        <td><span class="status status-{{ tenant.status }}">{{ tenant.status }}</span></td>
+        <td class="muted">{{ tenant.created_at|date:"d M Y H:i" }}</td>
+        <td><a href="{% url 'dashboard:tenant-detail' tenant.id %}">View →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No organizations yet.</p>
+  {% endif %}
+  <a class="btn" href="{% url 'dashboard:create-organization' %}" style="margin-top: 16px; display: inline-block;">+ Create Subdomain</a>
+</div>
+{% endblock %}

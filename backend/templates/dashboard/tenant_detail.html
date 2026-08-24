@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ tenant.organization.legal_name }} — Banking SaaS Admin{% endblock %}
+{% block content %}
+
+{% if admin_password %}
+<div class="alert alert-success">
+  <strong>Organization created.</strong> Copy these details now — the password won't be shown again.
+</div>
+<div class="card credential-box">
+  <p><strong>Subdomain:</strong> {{ subdomain_url }}</p>
+  <p><strong>Login email:</strong> {{ admin_user.email }}</p>
+  <p><strong>Temporary password:</strong> {{ admin_password }}</p>
+</div>
+{% endif %}
+
+{% if provisioning_error %}
+<div class="alert alert-error">
+  Something went wrong during provisioning: {{ provisioning_error }}
+  <br><a href="{% url 'dashboard:tenant-retry' tenant.id %}">Retry provisioning →</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <h1>{{ tenant.organization.trading_name|default:tenant.organization.legal_name }}</h1>
+  <p><span class="status status-{{ tenant.status }}">{{ tenant.status }}</span></p>
+
+  <table>
+    <tr><th>Organization type</th><td>{{ tenant.organization.get_org_type_display }}</td></tr>
+    <tr><th>Registration number</th><td>{{ tenant.organization.registration_number }}</td></tr>
+    <tr>
+      <th>Subdomain</th>
+      <td>
+        {% if domain %}
+          <a href="{{ subdomain_url }}" target="_blank">{{ domain.hostname }}</a>
+        {% else %}
+          <span class="muted">not yet assigned</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr><th>Database</th><td>{{ tenant.db_name|default:"—" }}</td></tr>
+    <tr><th>Fineract tenant ID</th><td>{{ tenant.fineract_tenant_identifier|default:"—" }}</td></tr>
+    {% if admin_user %}
+    <tr><th>Admin login</th><td>{{ admin_user.email }}</td></tr>
+    {% endif %}
+    <tr><th>Created</th><td>{{ tenant.created_at|date:"d M Y H:i" }}</td></tr>
+  </table>
+
+  {% if latest_job and latest_job.error_message and not provisioning_error %}
+    <p class="muted" style="margin-top: 16px;">Note: {{ latest_job.error_message }}</p>
+  {% endif %}
+
+  {% if tenant.status == "FAILED" %}
+    <a class="btn" href="{% url 'dashboard:tenant-retry' tenant.id %}" style="margin-top: 12px; display: inline-block;">Retry provisioning</a>
+  {% endif %}
+
+  <a class="btn btn-secondary" href="{% url 'dashboard:tenant-list' %}" style="margin-top: 16px; display: inline-block;">← Back to organizations</a>
+</div>
+{% endblock %}

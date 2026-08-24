@@ -1,0 +1,9 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Welcome — {{ org_name }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Welcome to {{ org_name }}</h1>
+  <p class="muted">You're visiting tenant <strong>{{ tenant_code }}</strong>.</p>
+  <p>This is a placeholder landing page for your organization.</p>
+</div>
+{% endblock %}
