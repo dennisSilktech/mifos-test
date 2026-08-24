@@ -193,8 +193,27 @@ CELERY_BROKER_CONNECTION_TIMEOUT = 2
 # ---------------------------------------------------------------------------
 # Platform-specific settings
 # ---------------------------------------------------------------------------
-PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.com")
+PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.silktechagency.com")
+
+PLATFORM_ADMIN_HOSTS = {
+    PLATFORM_BASE_DOMAIN,
+    f"admin.{PLATFORM_BASE_DOMAIN}",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+} | {
+    h.strip() for h in os.environ.get("PLATFORM_EXTRA_ADMIN_HOSTS", "").split(",") if h.strip()
+}
+
 CREDENTIAL_ENCRYPTION_KEY = os.environ.get("CREDENTIAL_ENCRYPTION_KEY", "")
+
+FINERACT_BASE_URL = os.environ.get("FINERACT_BASE_URL", "https://localhost:8443/fineract-provider/api/v1")
+FINERACT_ADMIN_USERNAME = os.environ.get("FINERACT_ADMIN_USERNAME", "mifos")
+FINERACT_ADMIN_PASSWORD = os.environ.get("FINERACT_ADMIN_PASSWORD", "")
+FINERACT_VERIFY_SSL = os.environ.get("FINERACT_VERIFY_SSL", "true").lower() == "true"
+
+PG_SUPERUSER_HOST = os.environ.get("PG_SUPERUSER_HOST", "localhost")
+...
 
 FINERACT_BASE_URL = os.environ.get("FINERACT_BASE_URL", "https://localhost:8443/fineract-provider/api/v1")
 FINERACT_ADMIN_USERNAME = os.environ.get("FINERACT_ADMIN_USERNAME", "mifos")
@@ -211,7 +230,7 @@ RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "120"))
 LOGIN_RATE_LIMIT_PER_MINUTE = int(os.environ.get("LOGIN_RATE_LIMIT_PER_MINUTE", "5"))
 
 EMAIL_BACKEND = os.environ.get("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@banking.com")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@banking.silktechagency.com")
 
 LOGIN_URL = "dashboard:login"
 LOGIN_REDIRECT_URL = "dashboard:tenant-list"

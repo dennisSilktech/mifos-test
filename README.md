@@ -103,8 +103,8 @@ docker compose exec web python manage.py createsuperuser
 
 Once you're ready to expose this beyond localhost, configure the wildcard
 reverse proxy on the Ubuntu host (see Section 4/17 of the architecture doc)
-to forward `*.banking.com` → `127.0.0.1:8000` (Django) and, if Fineract
-needs to be reachable directly, `fineract.banking.com` → `127.0.0.1:8443`.
+to forward `*.banking.silktechagency.com` → `127.0.0.1:8000` (Django) and, if Fineract
+needs to be reachable directly, `fineract.banking.silktechagency.com` → `127.0.0.1:8443`.
 
 ## Quick Reset
 
