@@ -151,3 +151,4 @@ banking-saas/
     ├── setup_postgres.sh
     └── reset_stack.sh
 ```
+# mifos-test
