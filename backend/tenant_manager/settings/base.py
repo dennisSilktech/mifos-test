@@ -193,7 +193,7 @@ CELERY_BROKER_CONNECTION_TIMEOUT = 2
 # ---------------------------------------------------------------------------
 # Platform-specific settings
 # ---------------------------------------------------------------------------
-PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.silktechagency.com")
+PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "localhost")
 
 PLATFORM_ADMIN_HOSTS = {
     PLATFORM_BASE_DOMAIN,
