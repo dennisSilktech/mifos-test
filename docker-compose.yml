@@ -83,6 +83,21 @@ services:
         echo "Host PostgreSQL is reachable."
       '
 
+  # Added Fineract container
+  fineract:
+    image: apache/fineract:latest
+    container_name: banking-fineract
+    ports:
+      - "8443:8443"
+    env_file:
+      - fineract/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres-check:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   web:
     build:
       context: .
