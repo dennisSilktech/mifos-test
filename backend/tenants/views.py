@@ -10,6 +10,11 @@ from .models import Domain, Tenant
 from .serializers import DomainSerializer, SuspendTenantSerializer, TenantSerializer
 from .services import TenantService
 
+from django.conf import settings
+from django.shortcuts import render
+from .models import Tenant as TenantModel
+
+
 
 class TenantViewSet(viewsets.ModelViewSet):
     queryset = Tenant.objects.select_related("organization").prefetch_related("domains").all()
@@ -47,29 +52,43 @@ class DomainViewSet(viewsets.ModelViewSet):
     filterset_fields = ["tenant", "is_custom"]
 
 
+
 def landing(request):
-    """Simple tenant-facing landing page.
-
-    If `request.tenant` has been attached by the middleware this returns a
-    friendly welcome page with the organization's name. Otherwise it falls
-    through to the dashboard (which is mounted at the same root for staff).
     """
+    Landing page for both platform and tenant hosts.
+
+    Platform:
+        banking.silktechagency.com
+
+    Tenant:
+        dennis.banking.silktechagency.com
+    """
+
     tenant = getattr(request, "tenant", None)
-    if not tenant:
-        # let the dashboard handle non-tenant hosts
-        from django.shortcuts import redirect
+    host = request.get_host().split(":")[0].lower()
 
-        return redirect("dashboard:tenant-list")
+    # Platform homepage
+    if tenant is None:
+        return render(
+            request,
+            "platform/index.html",
+            {
+                "platform_domain": settings.PLATFORM_BASE_DOMAIN,
+            },
+        )
 
-    # load richer organization info from the registry
-    from .models import Tenant as TenantModel
-
+    # Tenant homepage
     try:
         t = TenantModel.objects.select_related("organization").get(id=tenant.id)
         org_name = t.organization.trading_name or t.organization.legal_name
-    except Exception:
+    except TenantModel.DoesNotExist:
         org_name = tenant.tenant_code
 
-    from django.shortcuts import render
-
-    return render(request, "tenants/welcome.html", {"org_name": org_name, "tenant_code": tenant.tenant_code})
+    return render(
+        request,
+        "tenants/welcome.html",
+        {
+            "org_name": org_name,
+            "tenant_code": tenant.tenant_code,
+        },
+    )
