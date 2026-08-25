@@ -207,7 +207,10 @@ PLATFORM_ADMIN_HOSTS = {
 
 CREDENTIAL_ENCRYPTION_KEY = os.environ.get("CREDENTIAL_ENCRYPTION_KEY", "")
 
-FINERACT_BASE_URL = os.environ.get("FINERACT_BASE_URL", "https://localhost:8443/fineract-provider/api/v1")
+FINERACT_BASE_URL = os.environ.get(
+    "FINERACT_BASE_URL", 
+    "https://fineract:8443/fineract-provider/api/v1"
+)
 FINERACT_ADMIN_USERNAME = os.environ.get("FINERACT_ADMIN_USERNAME", "mifos")
 FINERACT_ADMIN_PASSWORD = os.environ.get("FINERACT_ADMIN_PASSWORD", "")
 FINERACT_VERIFY_SSL = os.environ.get("FINERACT_VERIFY_SSL", "true").lower() == "true"
@@ -215,10 +218,6 @@ FINERACT_VERIFY_SSL = os.environ.get("FINERACT_VERIFY_SSL", "true").lower() == "
 PG_SUPERUSER_HOST = os.environ.get("PG_SUPERUSER_HOST", "localhost")
 ...
 
-FINERACT_BASE_URL = os.environ.get("FINERACT_BASE_URL", "https://localhost:8443/fineract-provider/api/v1")
-FINERACT_ADMIN_USERNAME = os.environ.get("FINERACT_ADMIN_USERNAME", "mifos")
-FINERACT_ADMIN_PASSWORD = os.environ.get("FINERACT_ADMIN_PASSWORD", "")
-FINERACT_VERIFY_SSL = os.environ.get("FINERACT_VERIFY_SSL", "true").lower() == "true"
 
 # Postgres superuser connection used ONLY by the provisioning service
 PG_SUPERUSER_HOST = os.environ.get("PG_SUPERUSER_HOST", "localhost")

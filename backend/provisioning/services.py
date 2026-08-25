@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 import psycopg2
@@ -11,6 +12,8 @@ from tenants.models import EncryptedCredential, Tenant
 from tenants.services import DomainManager
 
 from .models import ProvisionJob
+
+logger = logging.getLogger(__name__)
 
 
 def get_superuser_connection():
@@ -272,6 +275,20 @@ class ProvisioningService:
         fn()
 
     def _send_welcome_email(self):
+        """
+        Best-effort, like the Fineract registration step. Sending the
+        welcome email is not core to "tenant exists and is usable" — if
+        Celery/Redis is briefly unreachable (e.g. this is being run from a
+        shell outside the Docker network where the 'redis' hostname
+        doesn't resolve), that must not roll back the database, admin
+        user, and Fineract registration that already succeeded.
+        """
         from notifications.tasks import send_welcome_email
 
-        send_welcome_email.delay(str(self.tenant.organization_id))
+        try:
+            send_welcome_email.delay(str(self.tenant.organization_id))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to enqueue welcome email for tenant %s (broker unreachable?): %s",
+                self.tenant.tenant_code, exc,
+            )
