@@ -1,4 +1,5 @@
 import logging
+from django.conf import settings
 from django.contrib import admin, messages
 from django.db import transaction
 
@@ -58,9 +59,11 @@ class TenantAdmin(admin.ModelAdmin):
             tenant = form.instance
 
             with transaction.atomic():
-                # Fallback: Auto-create primary domain if no inline domain was added
+                # Fallback: Auto-create primary domain using PLATFORM_BASE_DOMAIN setting
                 if not tenant.domains.exists():
-                    default_hostname = f"{tenant.tenant_code}.lvh.me"
+                    base_domain = getattr(settings, "PLATFORM_BASE_DOMAIN", "lvh.me")
+                    default_hostname = f"{tenant.tenant_code}.{base_domain}"
+                    
                     Domain.objects.create(
                         tenant=tenant,
                         hostname=default_hostname,
