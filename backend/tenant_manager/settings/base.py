@@ -317,3 +317,44 @@ LOGGING = {
 
 # Prevents Celery from overriding Django's logging settings
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
+# ---------------------------------------------------------------------------
+# Platform-specific settings
+# ---------------------------------------------------------------------------
+PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.silktechagency.com")
+
+PLATFORM_ADMIN_HOSTS = {
+    PLATFORM_BASE_DOMAIN,
+    f"admin.{PLATFORM_BASE_DOMAIN}",
+    "banking.silktechagency.com",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+} | {
+    h.strip() for h in os.environ.get("PLATFORM_EXTRA_ADMIN_HOSTS", "").split(",") if h.strip()
+}
+
+# ---------------------------------------------------------------------------
+# Security, SSL & CSRF Configuration
+# ---------------------------------------------------------------------------
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = not DEBUG
+
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://banking.silktechagency.com",
+    "https://*.banking.silktechagency.com",
+    "https://silktechagency.com",
+    "https://*.silktechagency.com",
+]
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https:\/\/([\w-]+\.)*silktechagency\.com$",
+    r"^https:\/\/([\w-]+\.)*banking\.silktechagency\.com$",
+]
+CORS_ALLOW_CREDENTIALS = True
