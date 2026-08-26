@@ -1,3 +1,5 @@
+import logging
+
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
@@ -5,6 +7,8 @@ from django.utils import timezone
 from audit.services import AuditService
 
 from .models import Domain, Tenant
+
+logger = logging.getLogger(__name__)
 
 
 class TenantService:
@@ -50,8 +54,22 @@ class DomainManager:
 
     @staticmethod
     def bust_cache(tenant: Tenant):
-        for domain in tenant.domains.all():
-            cache.delete(f"domain:{domain.hostname}")
+        """
+        Best-effort. This runs inside TenantService.suspend()/activate(),
+        both wrapped in @transaction.atomic — if cache.delete() raises
+        (Redis unreachable), that must never roll back the actual status
+        change. Worst case here is a stale cached domain lookup for up to
+        DOMAIN_CACHE_TTL (5 min), which is far preferable to "couldn't
+        suspend a compromised tenant because Redis was briefly down."
+        """
+        try:
+            for domain in tenant.domains.all():
+                cache.delete(f"domain:{domain.hostname}")
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "Failed to bust domain cache for tenant %s (Redis unreachable?)",
+                tenant.tenant_code, exc_info=True,
+            )
 
     @staticmethod
     def add_custom_domain(tenant: Tenant, hostname: str) -> Domain:

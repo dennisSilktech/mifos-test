@@ -44,11 +44,28 @@ def provision_tenant_database_task(self, job_id):
         job.save(update_fields=["current_step"])
         # TODO: Register tenant in Fineract tenant server registry
 
-        # Step 5: Activate Tenant
+        # Step 5: Create the subdomain — this was missing entirely, which is
+        # why new tenants got no Domain row. Skips silently if one already
+        # exists (e.g. a retry), so this task stays safe to re-run.
         job.current_step = ProvisionJob.Step.ACTIVATE
         job.save(update_fields=["current_step"])
-        
-        tenant.status = getattr(Tenant.Status, "ACTIVE", "ACTIVE")
+
+        from tenants.services import DomainManager
+
+        if not tenant.domains.filter(is_primary=True).exists():
+            DomainManager.create_primary_domain(tenant)
+            logger.info(
+                "Created primary domain '%s' for tenant '%s'.",
+                DomainManager.generate_subdomain(tenant.tenant_code), tenant.tenant_code,
+            )
+
+        # tenant.status must be a real Tenant.Status value — "ACTIVE" isn't
+        # one, and TenantResolverMiddleware specifically checks for
+        # status == "READY" to decide whether to serve the tenant at all.
+        # The previous getattr(..., "ACTIVE", "ACTIVE") fallback was
+        # silently writing the literal string "ACTIVE", which meant this
+        # tenant could never pass that check even with a domain in place.
+        tenant.status = Tenant.Status.READY
         tenant.is_active = True
         tenant.provisioned_at = timezone.now()
         tenant.save(update_fields=["status", "is_active", "provisioned_at"])
@@ -66,7 +83,7 @@ def provision_tenant_database_task(self, job_id):
         job.retry_count = self.request.retries
         job.save(update_fields=["is_success", "error_message", "retry_count"])
 
-        tenant.status = getattr(Tenant.Status, "FAILED", "FAILED")
+        tenant.status = Tenant.Status.FAILED
         tenant.is_active = False
         tenant.save(update_fields=["status", "is_active"])
 
