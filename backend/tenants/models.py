@@ -23,7 +23,7 @@ class Tenant(models.Model):
     db_port = models.PositiveIntegerField(default=5432)
     fineract_tenant_identifier = models.CharField(max_length=63, unique=True)
 
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, default='PENDING')
     is_active = models.BooleanField(default=False)
 
     provisioned_at = models.DateTimeField(null=True, blank=True)

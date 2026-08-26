@@ -1,5 +1,4 @@
 import uuid
-
 from django.db import models
 
 
@@ -18,8 +17,16 @@ class ProvisionJob(models.Model):
         DONE = "DONE", "Done"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="provision_jobs")
-    current_step = models.CharField(max_length=32, choices=Step.choices, default=Step.VALIDATE)
+    tenant = models.ForeignKey(
+        "tenants.Tenant",
+        on_delete=models.CASCADE,
+        related_name="provision_jobs",
+    )
+    current_step = models.CharField(
+        max_length=32,
+        choices=Step.choices,
+        default=Step.VALIDATE,
+    )
     is_success = models.BooleanField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     retry_count = models.PositiveSmallIntegerField(default=0)

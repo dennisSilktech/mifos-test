@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 from authentication.permissions import IsPlatformSupportOrAbove, IsSuperAdmin
 from provisioning.models import ProvisionJob
-from provisioning.tasks import run_provisioning
+from provisioning.tasks import provision_tenant_database_task
 
 from .models import Domain, Tenant
 from .serializers import DomainSerializer, SuspendTenantSerializer, TenantSerializer
@@ -41,7 +41,7 @@ class TenantViewSet(viewsets.ModelViewSet):
     def provision(self, request, pk=None):
         tenant = self.get_object()
         job = ProvisionJob.objects.create(tenant=tenant)
-        run_provisioning.delay(str(job.id))
+        provision_tenant_database_task.delay(str(job.id))
         return Response({"job_id": str(job.id), "status": "queued"}, status=202)
 
 

@@ -10,9 +10,12 @@ class AuditLog(models.Model):
         "authentication.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs"
     )
     actor_ip = models.GenericIPAddressField(null=True, blank=True)
-    action = models.CharField(max_length=64)
-    target_type = models.CharField(max_length=64, blank=True)
-    target_id = models.CharField(max_length=64, blank=True)
+    
+    # Increased max_length from 64 to handle longer HTTP endpoints, class paths, and UUID/URL target IDs
+    action = models.CharField(max_length=255)
+    target_type = models.CharField(max_length=128, blank=True)
+    target_id = models.CharField(max_length=255, blank=True)
+    
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 

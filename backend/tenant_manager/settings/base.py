@@ -248,3 +248,72 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        # 1. Root logger (catches everything default)
+        "": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        # 2. Provisioning pipeline (catches DB creation & Mifos/Fineract setup)
+        "provisioning": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 3. Tenant routing & Resolver (catches Subdomain/Domain parsing)
+        "tenants": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 4. Domain & Subdomain specific operations
+        "domains": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 5. Core Database SQL Queries (Logs every raw SQL query)
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 6. Celery Workers (if provisioning runs asynchronously)
+        "celery": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "celery.task": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 7. Gateway calls (if Mifos/Fineract schema tenant is provisioned)
+        "fineract_gateway": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+
+# Prevents Celery from overriding Django's logging settings
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False

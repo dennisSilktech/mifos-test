@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from authentication.permissions import IsPlatformSupportOrAbove
 
 from .models import ProvisionJob
-from .tasks import run_provisioning
+from .tasks import provision_tenant_database_task
 
 
 class ProvisionJobSerializer(serializers.ModelSerializer):
@@ -33,5 +33,8 @@ class ProvisionJobViewSet(viewsets.ReadOnlyModelViewSet):
         job.is_success = None
         job.error_message = ""
         job.save(update_fields=["retry_count", "is_success", "error_message"])
-        run_provisioning.delay(str(job.id))
+        
+        # Dispatch task with updated name
+        provision_tenant_database_task.delay(str(job.id))
+        
         return Response({"status": "requeued", "retry_count": job.retry_count})
