@@ -20,9 +20,7 @@ class DomainInline(admin.TabularInline):
     extra = 1
     fields = ("hostname", "is_primary", "is_custom")
 
-
 class TenantAdminForm(forms.ModelForm):
-    # Additional form fields for tenant admin credentials
     admin_email = forms.EmailField(
         required=False,
         label="Admin Email",
@@ -39,15 +37,33 @@ class TenantAdminForm(forms.ModelForm):
         model = Tenant
         fields = "__all__"
 
+    def clean_admin_email(self):
+        email = self.cleaned_data.get("admin_email")
+        if email and User.objects.filter(email=email).exists():
+            raise forms.ValidationError(
+                f"A user with the email '{email}' already exists in the system. Please use a unique email address."
+            )
+        return email
+
     def clean(self):
         cleaned_data = super().clean()
         tenant_code = cleaned_data.get("tenant_code")
         organization = cleaned_data.get("organization")
+        admin_email = cleaned_data.get("admin_email")
 
         # Fallback tenant code if left empty
         if not tenant_code and organization:
             tenant_code = slugify(organization.legal_name)[:24] or "org"
             cleaned_data["tenant_code"] = tenant_code
+
+        # If admin_email wasn't provided, check fallback default uniqueness
+        if tenant_code and not admin_email:
+            default_email = f"admin@{tenant_code}.com"
+            if User.objects.filter(email=default_email).exists():
+                self.add_error(
+                    "admin_email",
+                    f"The default generated email '{default_email}' already exists. Please specify a custom Admin Email.",
+                )
 
         # Populate required DB fields before model validation
         if tenant_code:
@@ -61,7 +77,64 @@ class TenantAdminForm(forms.ModelForm):
 
         return cleaned_data
 
+    
 
+class TenantAdminForm(forms.ModelForm):
+    admin_email = forms.EmailField(
+        required=False,
+        label="Admin Email",
+        help_text="Primary CEO email used to log in at the subdomain (e.g., admin@tenant.com). Defaults to admin@<tenant_code>.com if left blank.",
+    )
+    admin_password = forms.CharField(
+        widget=forms.PasswordInput(render_value=True),
+        required=False,
+        label="Admin Password",
+        help_text="Password for the subdomain login. Defaults to 'ChangeMe123!' if left blank.",
+    )
+
+    class Meta:
+        model = Tenant
+        fields = "__all__"
+
+    def clean_admin_email(self):
+        email = self.cleaned_data.get("admin_email")
+        if email and User.objects.filter(email=email).exists():
+            raise forms.ValidationError(
+                f"A user with the email '{email}' already exists in the system. Please use a unique email address."
+            )
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tenant_code = cleaned_data.get("tenant_code")
+        organization = cleaned_data.get("organization")
+        admin_email = cleaned_data.get("admin_email")
+
+        # Fallback tenant code if left empty
+        if not tenant_code and organization:
+            tenant_code = slugify(organization.legal_name)[:24] or "org"
+            cleaned_data["tenant_code"] = tenant_code
+
+        # If admin_email wasn't provided, check fallback default uniqueness
+        if tenant_code and not admin_email:
+            default_email = f"admin@{tenant_code}.com"
+            if User.objects.filter(email=default_email).exists():
+                self.add_error(
+                    "admin_email",
+                    f"The default generated email '{default_email}' already exists. Please specify a custom Admin Email.",
+                )
+
+        # Populate required DB fields before model validation
+        if tenant_code:
+            if not cleaned_data.get("db_name"):
+                cleaned_data["db_name"] = f"fineract_{tenant_code}"
+                self.errors.pop("db_name", None)
+
+            if not cleaned_data.get("fineract_tenant_identifier"):
+                cleaned_data["fineract_tenant_identifier"] = tenant_code
+                self.errors.pop("fineract_tenant_identifier", None)
+
+        return cleaned_data
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
     form = TenantAdminForm
@@ -139,8 +212,8 @@ class TenantAdmin(admin.ModelAdmin):
             admin_password = form.cleaned_data.get("admin_password") or "ChangeMe123!"
 
             with transaction.atomic():
-                # 1. Create primary CEO user with hashed password
-                user = User.objects.filter(email=admin_email, tenant=tenant).first()
+                # 1. Look up user globally by email across all tenants
+                user = User.objects.filter(email=admin_email).first()
                 if not user:
                     user = User.objects.create_user(
                         email=admin_email,
@@ -151,8 +224,9 @@ class TenantAdmin(admin.ModelAdmin):
                         is_active=True,
                     )
                 else:
+                    user.tenant = tenant
                     user.set_password(admin_password)
-                    user.save()
+                    user.save(update_fields=["tenant", "password"])
 
                 # 2. Auto-create primary domain if missing
                 if not tenant.domains.exists():
@@ -182,6 +256,8 @@ class TenantAdmin(admin.ModelAdmin):
                 f"Tenant '{tenant.tenant_code}' created with admin '{user.email}'. Queued for provisioning (Job ID: {job_id}).",
             )
 
+
+            
 @admin.register(Domain)
 class DomainAdmin(admin.ModelAdmin):
     list_display = ("hostname", "tenant", "is_primary", "is_custom", "created_at")
