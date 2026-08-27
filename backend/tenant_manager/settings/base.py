@@ -41,6 +41,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "tenants.middleware.TenantResolverMiddleware",
@@ -77,8 +78,6 @@ ASGI_APPLICATION = "tenant_manager.asgi.application"
 
 # ---------------------------------------------------------------------------
 # Database — control-plane "tenant_registry" DB.
-# Per-tenant databases (tenant_imara, tenant_unity, ...) are registered
-# dynamically at runtime by tenants.db_router / tenants.connection_registry.
 # ---------------------------------------------------------------------------
 DATABASES = {
     "default": {
@@ -119,15 +118,25 @@ TIME_ZONE = "Africa/Nairobi"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+# ---------------------------------------------------------------------------
+# Static Files & WhiteNoise
+# ---------------------------------------------------------------------------
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        if not DEBUG
+        else "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# email is unique *per tenant* (see authentication.User.Meta.constraints),
-# not globally — Django's default auth.E003 check assumes a globally unique
-# USERNAME_FIELD, which doesn't apply to our multi-tenant login model since
-# AuthenticationService always scopes lookups by (tenant, email).
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]
 
 # ---------------------------------------------------------------------------
@@ -161,12 +170,6 @@ SIMPLE_JWT = {
 }
 
 # ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
-CORS_ALLOWED_ORIGIN_REGEXES = [r"^https:\/\/([\w-]+\.)?banking\.com$"]
-CORS_ALLOW_CREDENTIALS = True
-
-# ---------------------------------------------------------------------------
 # Redis / Cache / Celery
 # ---------------------------------------------------------------------------
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -185,19 +188,15 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
-# Every task here is fire-and-forget (provisioning/audit/notifications all
-# report their own state via models, not task return values) — nothing
-# ever calls .get() on a result. Ignoring results means .delay() never has
-# to touch the result backend, so a slow/unreachable Redis can't turn into
-# a multi-second hang (or a 20s retry loop) on every mutating request.
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_TIMEOUT = 2
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 # ---------------------------------------------------------------------------
-# Platform-specific settings
+# Platform-specific & Provisioning Settings
 # ---------------------------------------------------------------------------
-PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "localhost")
+PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.silktechagency.com")
 
 PLATFORM_ADMIN_HOSTS = {
     PLATFORM_BASE_DOMAIN,
@@ -220,11 +219,6 @@ FINERACT_ADMIN_PASSWORD = os.environ.get("FINERACT_ADMIN_PASSWORD", "")
 FINERACT_VERIFY_SSL = os.environ.get("FINERACT_VERIFY_SSL", "true").lower() == "true"
 
 PG_SUPERUSER_HOST = os.environ.get("PG_SUPERUSER_HOST", "localhost")
-...
-
-
-# Postgres superuser connection used ONLY by the provisioning service
-PG_SUPERUSER_HOST = os.environ.get("PG_SUPERUSER_HOST", "localhost")
 PG_SUPERUSER_PORT = os.environ.get("PG_SUPERUSER_PORT", "5432")
 PG_SUPERUSER_NAME = os.environ.get("PG_SUPERUSER_NAME", "postgres")
 PG_SUPERUSER_PASSWORD = os.environ.get("PG_SUPERUSER_PASSWORD", "")
@@ -239,20 +233,9 @@ LOGIN_URL = "dashboard:login"
 LOGIN_REDIRECT_URL = "dashboard:tenant-list"
 LOGOUT_REDIRECT_URL = "dashboard:login"
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "structured": {
-            "format": '{"time": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}'
-        },
-    },
-    "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "structured"},
-    },
-    "root": {"handlers": ["console"], "level": "INFO"},
-}
-
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -270,36 +253,30 @@ LOGGING = {
         },
     },
     "loggers": {
-        # 1. Root logger (catches everything default)
         "": {
             "handlers": ["console"],
             "level": "INFO",
         },
-        # 2. Provisioning pipeline (catches DB creation & Mifos/Fineract setup)
         "provisioning": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
         },
-        # 3. Tenant routing & Resolver (catches Subdomain/Domain parsing)
         "tenants": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
         },
-        # 4. Domain & Subdomain specific operations
         "domains": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
         },
-        # 5. Core Database SQL Queries (Logs every raw SQL query)
         "django.db.backends": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
         },
-        # 6. Celery Workers (if provisioning runs asynchronously)
         "celery": {
             "handlers": ["console"],
             "level": "DEBUG",
@@ -310,7 +287,6 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
-        # 7. Gateway calls (if Mifos/Fineract schema tenant is provisioned)
         "fineract_gateway": {
             "handlers": ["console"],
             "level": "DEBUG",
@@ -319,27 +295,8 @@ LOGGING = {
     },
 }
 
-# Prevents Celery from overriding Django's logging settings
-CELERY_WORKER_HIJACK_ROOT_LOGGER = False
-
 # ---------------------------------------------------------------------------
-# Platform-specific settings
-# ---------------------------------------------------------------------------
-PLATFORM_BASE_DOMAIN = os.environ.get("PLATFORM_BASE_DOMAIN", "banking.silktechagency.com")
-
-PLATFORM_ADMIN_HOSTS = {
-    PLATFORM_BASE_DOMAIN,
-    f"admin.{PLATFORM_BASE_DOMAIN}",
-    "banking.silktechagency.com",
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-} | {
-    h.strip() for h in os.environ.get("PLATFORM_EXTRA_ADMIN_HOSTS", "").split(",") if h.strip()
-}
-
-# ---------------------------------------------------------------------------
-# Security, SSL & CSRF Configuration
+# Security, SSL, CORS & CSRF Configuration
 # ---------------------------------------------------------------------------
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = not DEBUG
@@ -347,38 +304,24 @@ SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
+# Prevents COOP browser warnings when running unencrypted HTTP on local subdomains (e.g. lvh.me)
+if DEBUG:
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 CSRF_TRUSTED_ORIGINS = [
     "https://banking.silktechagency.com",
     "https://*.banking.silktechagency.com",
     "https://silktechagency.com",
     "https://*.silktechagency.com",
+    "http://*.lvh.me:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
-# ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/([\w-]+\.)*silktechagency\.com$",
     r"^https:\/\/([\w-]+\.)*banking\.silktechagency\.com$",
+    r"^http:\/\/([\w-]+\.)*lvh\.me:8000$",
+    r"^http:\/\/localhost:8000$",
 ]
 CORS_ALLOW_CREDENTIALS = True
-
-
-# 1. Allow data: URIs for images/favicons
-CSP_IMG_SRC = ("'self'", "data:")
-
-# 2. If django-csp is active, ensure static files are explicitly permitted
-CSP_STYLE_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'",)
-
-# 3. Ensure static files serving is correctly configured in dev
-STATIC_URL = '/static/'
-
-
-# Tell Django to look into your top-level static directory
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
-
-# Destination directory when running collectstatic for Docker/Nginx
-STATIC_ROOT = BASE_DIR / 'staticfiles'
