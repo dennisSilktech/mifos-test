@@ -107,13 +107,8 @@ class TenantResolverMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+
     def __call__(self, request):
-        # Django's own /admin/ (and the health probe) are always
-        # platform-staff scoped, regardless of which hostname/domain they
-        # were reached through. This makes /admin/ resilient to DNS or
-        # PLATFORM_BASE_DOMAIN misconfiguration in any given environment —
-        # it should never 404 with "organization not found" just because
-        # of a hostname mismatch.
         if request.path.startswith("/admin/") or request.path.startswith("/api/v1/health"):
             request.tenant = None
             return self.get_response(request)
@@ -121,54 +116,46 @@ class TenantResolverMiddleware:
         host = self._normalize(request.get_host())
 
         from django.conf import settings
-
         admin_hosts = {self._normalize(h) for h in settings.PLATFORM_ADMIN_HOSTS}
 
         if host in admin_hosts or host.startswith("admin."):
             request.tenant = None
             return self.get_response(request)
 
+        # 1. Fetch from DB (or get cached domain/tenant ID)
+        from .models import Domain, Tenant
+
         cache_key = f"domain:{host}"
-        cached = cache.get(cache_key)
+        tenant_id = cache.get(cache_key)
 
-        if cached:
-            tenant_data = json.loads(cached) if isinstance(cached, str) else cached
-        else:
-            from .models import Domain
-
+        if not tenant_id:
             domain = Domain.objects.select_related("tenant").filter(hostname=host).first()
             if not domain:
                 logger.warning(
-                    "TenantResolverMiddleware: no Domain row for host=%r. "
-                    "If this should be your platform/admin domain, check that it's listed in "
-                    "PLATFORM_ADMIN_HOSTS (derived from PLATFORM_BASE_DOMAIN=%r).",
-                    host, getattr(settings, "PLATFORM_BASE_DOMAIN", None),
+                    "TenantResolverMiddleware: no Domain row for host=%r.", host
                 )
                 return self._error_response(request, 404, "TENANT_NOT_FOUND", "Organization not found.")
+            
+            tenant = domain.tenant
+            cache.set(cache_key, str(tenant.id), DOMAIN_CACHE_TTL)
+        else:
+            tenant = Tenant.objects.filter(id=tenant_id).first()
+            if not tenant:
+                return self._error_response(request, 404, "TENANT_NOT_FOUND", "Organization not found.")
 
-            tenant_data = {
-                "id": str(domain.tenant.id),
-                "tenant_code": domain.tenant.tenant_code,
-                "status": domain.tenant.status,
-                "db_name": domain.tenant.db_name,
-                "db_user": domain.tenant.db_user,
-                "db_host": domain.tenant.db_host,
-                "db_port": domain.tenant.db_port,
-                "fineract_tenant_identifier": domain.tenant.fineract_tenant_identifier,
-            }
-            cache.set(cache_key, json.dumps(tenant_data), DOMAIN_CACHE_TTL)
-
-        if tenant_data["status"] == "SUSPENDED":
+        # 2. Check Status
+        if tenant.status == "SUSPENDED":
             return self._error_response(
                 request, 403, "TENANT_SUSPENDED", "This organization's account is suspended."
             )
 
-        if tenant_data["status"] != "READY":
+        if tenant.status != "READY":
             return self._error_response(
                 request, 503, "TENANT_NOT_READY", "This organization is still being set up."
             )
 
-        request.tenant = SimpleNamespace(**tenant_data)
+        # 3. Attach actual Model instance
+        request.tenant = tenant
         return self.get_response(request)
 
     @staticmethod

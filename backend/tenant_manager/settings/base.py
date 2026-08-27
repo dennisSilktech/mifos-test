@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "billing",
     "notifications",
     "dashboard",
+    "portal",
 ]
 
 MIDDLEWARE = [
@@ -95,7 +96,10 @@ DATABASE_ROUTERS = ["tenants.db_router.TenantDatabaseRouter"]
 
 AUTH_USER_MODEL = "authentication.User"
 
-AUTHENTICATION_BACKENDS = ["authentication.backends.PlatformStaffBackend"]
+AUTHENTICATION_BACKENDS = [
+    "authentication.backends.PlatformStaffBackend",
+    "authentication.backends.TenantUserBackend",
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

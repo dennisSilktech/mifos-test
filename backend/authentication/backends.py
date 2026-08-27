@@ -23,3 +23,24 @@ class PlatformStaffBackend(ModelBackend):
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
         return None
+
+
+
+class TenantUserBackend(ModelBackend):
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            return None
+
+        try:
+            user = User.objects.get(
+                tenant=tenant,
+                email__iexact=username,
+                is_active=True,
+            )
+        except User.DoesNotExist:
+            return None
+
+        if user.check_password(password):
+            return user
+        return None
