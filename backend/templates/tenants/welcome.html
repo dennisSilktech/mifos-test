@@ -1,9 +1,29 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Welcome — {{ org_name }}{% endblock %}
+
 {% block content %}
-<div class="card">
-  <h1>Welcome to {{ org_name }}</h1>
-  <p class="muted">You're visiting tenant <strong>{{ tenant_code }}</strong>.</p>
-  <p>This is a placeholder landing page for your organization.</p>
+<div class="welcome-card" style="display: flex; justify-content: space-between; align-items: center; padding: 24px; background: #fff; border: 1px solid #dfe5e2; border-radius: 12px; margin-bottom: 24px;">
+  <div class="welcome-title">
+    <h1 style="font-size: 1.5rem; color: #1b4332; margin-bottom: 6px;">Welcome to {{ org_name }}</h1>
+    <p class="muted" style="color: #6b7c73; margin-bottom: 4px;">You're visiting tenant <strong>{{ tenant_code }}</strong>.</p>
+    {% if user.is_authenticated %}
+      <p style="font-size: 0.9rem; color: #6b7c73;">Signed in as <strong>{{ user.email }}</strong></p>
+    {% else %}
+      <p style="font-size: 0.9rem; color: #6b7c73;">This is a placeholder landing page for your organization.</p>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'portal:portal-logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary">Sign out</button>
+      </form>
+    {% else %}
+      <a class="btn" href="{% url 'portal:portal-login' %}" style="display: inline-flex; align-items: center; justify-content: center; background: #1b4332; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem;">
+        Sign in to Account
+      </a>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}
