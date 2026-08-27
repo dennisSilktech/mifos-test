@@ -362,3 +362,23 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https:\/\/([\w-]+\.)*banking\.silktechagency\.com$",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+
+# 1. Allow data: URIs for images/favicons
+CSP_IMG_SRC = ("'self'", "data:")
+
+# 2. If django-csp is active, ensure static files are explicitly permitted
+CSP_STYLE_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+
+# 3. Ensure static files serving is correctly configured in dev
+STATIC_URL = '/static/'
+
+
+# Tell Django to look into your top-level static directory
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# Destination directory when running collectstatic for Docker/Nginx
+STATIC_ROOT = BASE_DIR / 'staticfiles'
