@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ tenant.tenant_code|default:"Banking SaaS" }}</title>
+  <style>
+    :root { --brand: #1b4332; --brand-light: #40916c; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, var(--brand) 0%, #081c15 100%);
+      color: white; text-align: center; padding: 20px;
+    }
+    .card { max-width: 480px; }
+    h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    p { opacity: 0.85; margin-bottom: 32px; line-height: 1.5; }
+    .btn {
+      display: inline-block; background: var(--brand-light); color: white; padding: 14px 32px;
+      border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem;
+    }
+    .btn:hover { background: #52b788; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Welcome{% if organization %} to {{ organization }}{% endif %}</h1>
+    {% if tenant %}<p>You're visiting <strong>{{ tenant.tenant_code }}</strong>.</p>{% endif %}
+    {% if user.is_authenticated %}
+      <p>Signed in as {{ user.email }}.</p>
+      
+      <!-- HTTP POST Form for Logout -->
+      <form method="post" action="{% url 'portal:portal-logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn">Sign out</button>
+      </form>
+
+    {% else %}
+      <a class="btn" href="{% url 'portal:portal-login' %}">Sign in</a>
+    {% endif %}
+  </div>
+</body>
+</html>
