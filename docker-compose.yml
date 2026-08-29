@@ -1,25 +1,13 @@
 version: "3.9"
 
 # -----------------------------------------------------------------------
-# What's containerized here: Django (web, celery-worker, celery-beat) and
-# Redis.
+# What's containerized here: Django (web, celery-worker, celery-beat),
+# Fineract, and Redis.
 #
 # What's NOT here:
-#   - PostgreSQL: runs natively on the Ubuntu host (see scripts/setup_
-#     postgres.sh) so `psql` and every tenant database it creates are
-#     directly visible on the host — nothing hidden inside a container
-#     volume. Reached via host.docker.internal.
-#   - Fineract: assumed already running as its own standalone container
-#     (`docker run --name fineract-server ...`, port 8443 published on the
-#     host) — not managed by this compose file. Reached the same way, via
-#     host.docker.internal:8443.
-#
-# host.docker.internal ONLY resolves to your host's IP — it does not make
-# host Postgres reachable by itself. You must also:
-#   1. Set `listen_addresses = '*'` in postgresql.conf
-#   2. Allow the Docker bridge subnet in pg_hba.conf
-#   3. Allow port 5432 through ufw/iptables if a firewall is active
-# See README.md.
+#   - PostgreSQL: runs natively on the Ubuntu host so `psql` and every tenant
+#     database it creates are directly visible on the host. Reached via 
+#     host.docker.internal (or static gateway 172.25.0.1).
 # -----------------------------------------------------------------------
 
 x-django-env: &django-env
@@ -27,7 +15,6 @@ x-django-env: &django-env
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
   DJANGO_DEBUG: "true"
   DJANGO_ALLOWED_HOSTS: "*"
-  # ... rest of your env vars
 
   REGISTRY_DB_NAME: ${REGISTRY_DB_NAME:-tenant_registry}
   REGISTRY_DB_USER: ${REGISTRY_DB_USER:-registry_app_role}
@@ -40,8 +27,7 @@ x-django-env: &django-env
   PG_SUPERUSER_NAME: ${PG_SUPERUSER_NAME:-postgres}
   PG_SUPERUSER_PASSWORD: ${PG_SUPERUSER_PASSWORD}
 
-  # Redis is containerized (service name 'redis' on the compose network) —
-  # not the host.
+  # Redis is containerized (service name 'redis' on the compose network)
   REDIS_URL: redis://redis:6379/0
 
   CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
@@ -50,16 +36,22 @@ x-django-env: &django-env
 
   PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-localhost}
 
-  # Existing standalone Fineract container, published on the host at 8443.
+  # Fineract container, published on the host at 8443.
   FINERACT_BASE_URL: ${FINERACT_BASE_URL:-https://host.docker.internal:8443/fineract-provider/api/v1}
   FINERACT_ADMIN_USERNAME: ${FINERACT_ADMIN_USERNAME:-mifos}
   FINERACT_ADMIN_PASSWORD: ${FINERACT_ADMIN_PASSWORD}
   FINERACT_VERIFY_SSL: "false"
 
+# Apply custom static subnet across all services
+x-networks: &default-network
+  networks:
+    - banking-net
+
 services:
   redis:
     image: redis:7-alpine
     container_name: banking-redis
+    <<: *default-network
     volumes:
       - redis-data:/data
     healthcheck:
@@ -69,11 +61,10 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # One-shot readiness gate: waits for the host Postgres to actually accept
-  # connections before anything that needs it starts. Exits 0 once ready.
   postgres-check:
     image: postgres:16-alpine
     container_name: banking-postgres-check
+    <<: *default-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: >
@@ -83,10 +74,10 @@ services:
         echo "Host PostgreSQL is reachable."
       '
 
-  # Added Fineract container
   fineract:
     image: apache/fineract:latest
     container_name: banking-fineract
+    <<: *default-network
     ports:
       - "8443:8443"
     env_file:
@@ -103,6 +94,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: banking-django-web
+    <<: *default-network
     ports:
       - "8000:8000"
     environment:
@@ -128,6 +120,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: banking-celery-worker
+    <<: *default-network
     command: celery -A tenant_manager worker --loglevel=INFO --concurrency=4
     environment:
       <<: *django-env
@@ -144,6 +137,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: banking-celery-beat
+    <<: *default-network
     command: celery -A tenant_manager beat --loglevel=INFO
     environment:
       <<: *django-env
@@ -154,6 +148,15 @@ services:
       web:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  banking-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
 
 volumes:
   redis-data:
