@@ -1,9 +1,11 @@
 from django.shortcuts import redirect, render
 
+
 def home(request):
-    # 1. Tenant domain request: redirect straight to the portal route
+    # 1. Tenant domain request: redirect straight to the frontend login page
     if getattr(request, "tenant", None) is not None:
-        return redirect("portal:home")
+        host = request.get_host().split(":")[0]
+        return redirect(f"http://{host}:4200/#/login")
 
     # 2. Main platform domain request: render platform landing page
     is_staff = request.user.is_authenticated and (

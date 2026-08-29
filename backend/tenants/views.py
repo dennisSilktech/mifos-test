@@ -11,7 +11,7 @@ from .serializers import DomainSerializer, SuspendTenantSerializer, TenantSerial
 from .services import TenantService
 
 from django.conf import settings
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from .models import Tenant as TenantModel
 
 
@@ -77,18 +77,5 @@ def landing(request):
             },
         )
 
-    # Tenant homepage
-    try:
-        t = TenantModel.objects.select_related("organization").get(id=tenant.id)
-        org_name = t.organization.trading_name or t.organization.legal_name
-    except TenantModel.DoesNotExist:
-        org_name = tenant.tenant_code
-
-    return render(
-        request,
-        "tenants/welcome.html",
-        {
-            "org_name": org_name,
-            "tenant_code": tenant.tenant_code,
-        },
-    )
+    # Always send tenant hosts to the Angular frontend login page.
+    return redirect(f"http://{host}:4200/#/login")
