@@ -1,4 +1,4 @@
-version: "3.9"
+#version: "3.9"
 
 # -----------------------------------------------------------------------
 # What's containerized here: Django (web, celery-worker, celery-beat),
@@ -116,19 +116,19 @@ services:
     restart: unless-stopped
 
   webapp:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: banking-angular-webapp
-    <<: *default-network
-    ports:
-      - "4200:80"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      web:
-        condition: service_healthy
-    restart: unless-stopped
+      build:
+        context: ./web-app
+        dockerfile: Dockerfile
+      container_name: banking-angular-webapp
+      <<: *default-network
+      ports:
+        - "4200:80"
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+      depends_on:
+        web:
+          condition: service_healthy
+      restart: unless-stopped
 
   celery-worker:
     build:
