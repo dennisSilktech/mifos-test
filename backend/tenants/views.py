@@ -78,4 +78,4 @@ def landing(request):
         )
 
     # Always send tenant hosts to the Angular frontend login page.
-    return redirect(f"http://{host}:4200/#/login")
+    return redirect(f"{request.scheme}://{host}/#/login")

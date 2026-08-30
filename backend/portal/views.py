@@ -36,4 +36,4 @@ def home(request):
         raise Http404
 
     host = request.get_host().split(":")[0].lower()
-    return redirect(f"http://{host}:4200/#/login")
+    return redirect(f"{request.scheme}://{host}/#/login")
